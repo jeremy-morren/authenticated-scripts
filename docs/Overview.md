@@ -16,7 +16,7 @@ Please note that these tasks are built to only use `Generic` Service Connections
 * ✅ Shorthand syntax for clean yaml
 * ✅ Expose variables mode for using service connection as shared secret
 
-## Use a script
+## Usage
 
 In `scriptPath` and `inlineScript` modes, the task makes these environment variables available to the child script:
 
@@ -83,6 +83,8 @@ If `scriptType` is provided, it must match the provided shorthand.
 
 To simply expose the service connection as job variables, use the `scriptLocation: createVariables`.
 
+This creates `PARTNER_API_URL`, `PARTNER_API_USERNAME`, and `PARTNER_API_PASSWORD`. Username and password are marked secret and are masked in task output.
+
 ```yaml
 - task: AuthenticatedScripts@2
   inputs:
@@ -93,9 +95,7 @@ To simply expose the service connection as job variables, use the `scriptLocatio
 - bash: curl --user "$(PARTNER_API_USERNAME):$(PARTNER_API_PASSWORD)" "$(PARTNER_API_URL)/health"
 ```
 
-This creates `PARTNER_API_URL`, `PARTNER_API_USERNAME`, and `PARTNER_API_PASSWORD`. Username and password are marked secret and are masked in task output. 
-
-Variables are available to subsequent tasks in the same job, not the task that creates them.
+Variables are job-scoped hence only available to subsequent steps in the same job.
 
 ## Acknowledgements
 
