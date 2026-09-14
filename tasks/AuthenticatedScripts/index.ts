@@ -41,6 +41,11 @@ function echoIfSingleLine(contents: string): void {
   }
 }
 
+/** The agent fills an unset filePath input with the sources directory, so treat that value as unset. */
+function scriptFileInput(): string | undefined {
+  return tl.filePathSupplied('scriptFile') ? tl.getInput('scriptFile', false) : undefined;
+}
+
 /** Gets all shorthand script inputs. */
 function shorthandInputs(): ShorthandInputs {
   const entries = SCRIPT_TYPES.map(type => [type, tl.getInput(type, false)]);
@@ -50,7 +55,7 @@ function shorthandInputs(): ShorthandInputs {
 function warnIgnoredScriptInputs(): void {
   const values = {
     inlineScript: tl.getInput('inlineScript', false),
-    scriptFile: tl.getInput('scriptFile', false),
+    scriptFile: scriptFileInput(),
     parameters: tl.getInput('parameters', false),
     ...shorthandInputs()
   };
@@ -65,7 +70,7 @@ async function runScript(location: Exclude<ScriptLocation, 'createVariables'>): 
   const source = resolveScriptSource(
     location,
     tl.getInput('scriptType', false),
-    tl.getInput('scriptFile', false),
+    scriptFileInput(),
     tl.getInput('inlineScript', false),
     shorthandInputs()
   );
@@ -85,7 +90,10 @@ async function runScript(location: Exclude<ScriptLocation, 'createVariables'>): 
   try {
     let scriptFile: string;
     if (location === 'scriptPath') {
-      scriptFile = path.resolve(cwd, source.value || tl.getInputRequired('scriptFile'));
+      if (!source.value) {
+        throw new Error('Input required: scriptFile');
+      }
+      scriptFile = path.resolve(cwd, source.value);
       if (!fs.existsSync(scriptFile) || !fs.statSync(scriptFile).isFile()) {
         throw new Error(`Script file does not exist: ${scriptFile}`);
       }

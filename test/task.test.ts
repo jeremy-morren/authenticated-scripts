@@ -112,6 +112,26 @@ test('inline files are removed after success, script failure, and credential fai
   }
 });
 
+test('the agent default for an unset scriptFile is treated as unset', t => {
+  const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'default-path-task-'));
+  t.after(() => fs.rmSync(directory, { recursive: true, force: true }));
+  const type = process.platform === 'win32' ? 'batch' : 'bash';
+  const agentDefaults = { INPUT_SERVICECONNECTION: 'TEST', BUILD_SOURCESDIRECTORY: directory, INPUT_SCRIPTFILE: directory };
+
+  const shorthand = runTask(directory, { ...agentDefaults, [`INPUT_${type.toUpperCase()}`]: 'echo SHORTHAND=[ran]' });
+  assert.equal(shorthand.status, 0, shorthand.stderr);
+  assert.match(shorthand.stdout, /task.complete result=Succeeded/);
+  assert.match(shorthand.stdout, /SHORTHAND=\[ran\]/);
+
+  const variables = runTask(directory, { ...agentDefaults, INPUT_SCRIPTLOCATION: 'createVariables', INPUT_VARIABLEPREFIX: 'TEST' });
+  assert.match(variables.stdout, /task.complete result=Succeeded/);
+  assert.doesNotMatch(variables.stdout, /Ignoring script-only input/);
+
+  const scriptPath = runTask(directory, { ...agentDefaults, INPUT_SCRIPTLOCATION: 'scriptPath', INPUT_SCRIPTTYPE: type });
+  assert.match(scriptPath.stdout, /task.complete result=Failed/);
+  assert.match(scriptPath.stdout, /Input required: scriptFile/);
+});
+
 test('explicit and shorthand missing paths use the same validation', t => {
   const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'missing-task-'));
   t.after(() => fs.rmSync(directory, { recursive: true, force: true }));
