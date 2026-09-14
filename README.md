@@ -7,3 +7,7 @@ An Azure DevOps extension that lets a pipeline step use the URL, username, and p
 ## Overview
 
 See the [Overview document](./docs/Overview.md).
+
+## Acknowledgements
+
+This task is heavily inspired by [cloudpups/authenticated-scripts](https://github.com/cloudpups/authenticated-scripts), with ergonomic improvements and update to `Node_24` runtime.

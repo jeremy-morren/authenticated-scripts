@@ -1,6 +1,6 @@
 {
   "manifestVersion": 1,
-  "id": "authenticated-scripts",
+  "id": "authenticatedscripts",
   "name": "Authenticated Scripts",
   "publisher": "jeremy-morren",
   "version": "0.1.0",
@@ -16,6 +16,7 @@
   ],
   "public": true,
   "targets": [{ "id": "Microsoft.VisualStudio.Services" }],
+  "icons": { "default": "images/logo.png" },
   "files": [
     { "path": "tasks/AuthenticatedScripts" },
     { "path": "LICENSE.txt", "addressable": true },

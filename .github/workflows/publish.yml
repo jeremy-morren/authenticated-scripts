@@ -24,13 +24,14 @@ jobs:
           install-tfx: 'true'
 
       - name: Download the published release VSIX
-        run: gh release download "$RELEASE_TAG" --pattern authenticated-scripts.vsix --dir dist
+        run: gh release download "$RELEASE_TAG" --pattern "authenticated-scripts-$RELEASE_TAG.vsix" --dir dist
         env:
           GH_TOKEN: ${{ github.token }}
           GH_REPO: ${{ github.repository }}
           RELEASE_TAG: ${{ github.event.release.tag_name }}
 
       - name: Publish the release artifact to Visual Studio Marketplace
-        run: tfx extension publish --vsix dist/authenticated-scripts.vsix --auth-type pat --token "$PUBLISH_TOKEN"
+        run: tfx extension publish --vsix "dist/authenticated-scripts-$RELEASE_TAG.vsix" --auth-type pat --token "$PUBLISH_TOKEN"
         env:
           PUBLISH_TOKEN: ${{ secrets.PUBLISH_TOKEN }}
+          RELEASE_TAG: ${{ github.event.release.tag_name }}

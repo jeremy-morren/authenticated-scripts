@@ -87,7 +87,7 @@
       "label": "pwsh YAML shorthand",
       "required": false,
       "defaultValue": "",
-      "visibleRule": "false",
+      "visibleRule": "scriptLocation = yamlOnly",
       "helpMarkDown": "Configures script type as PowerShell Core (`pwsh`). Supplies inline script content or a script path, depending on scriptLocation."
     },
     {
@@ -96,7 +96,7 @@
       "label": "PowerShell YAML shorthand",
       "required": false,
       "defaultValue": "",
-      "visibleRule": "false",
+      "visibleRule": "scriptLocation = yamlOnly",
       "helpMarkDown": "Configures script type as Windows PowerShell (`powershell.exe`). Supplies inline script content or a script path, depending on scriptLocation."
     },
     {
@@ -105,7 +105,7 @@
       "label": "Batch YAML shorthand",
       "required": false,
       "defaultValue": "",
-      "visibleRule": "false",
+      "visibleRule": "scriptLocation = yamlOnly",
       "helpMarkDown": "Configures script type as Windows Batch file (`cmd.exe`). Supplies inline script content or a script path, depending on scriptLocation."
     },
     {
@@ -114,7 +114,7 @@
       "label": "Bash YAML shorthand",
       "required": false,
       "defaultValue": "",
-      "visibleRule": "false",
+      "visibleRule": "scriptLocation = yamlOnly",
       "helpMarkDown": "Configures script type as Bash script. Supplies inline script content or a script path, depending on scriptLocation."
     }
   ],

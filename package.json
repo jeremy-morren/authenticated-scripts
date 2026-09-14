@@ -9,18 +9,20 @@
     "npm": "11.16.0"
   },
   "scripts": {
-    "build": "node scripts/check-task-version.mts && tsc --project tsconfig.json && esbuild build/tasks/AuthenticatedScripts/index.js --bundle --platform=node --target=node24 --outfile=tasks/AuthenticatedScripts/dist/index.js && node build/scripts/copy-task-resources.js",
+    "build": "node scripts/check-task-version.mts && tsc --project tsconfig.json && esbuild build/tasks/AuthenticatedScripts/index.js --bundle --platform=node --target=node24 --outfile=tasks/AuthenticatedScripts/dist/index.js && node build/scripts/copy-task-resources.js && npm run build:logo",
+    "build:logo": "node scripts/render-logo.mts",
     "test": "npm run build && node --test build/test/*.test.js",
-    "package:raw": "npm run build && tfx extension create --manifest-globs vss-extension.json --output-path dist/authenticated-scripts.vsix",
-    "package": "npm run package:raw && node build/scripts/repack-vsix.js dist/authenticated-scripts.vsix",
+    "package:raw": "npm run build && tfx extension create --manifest-globs vss-extension.json --output-path build/authenticated-scripts.vsix",
+    "package": "npm run package:raw && node build/scripts/repack-vsix.js build/authenticated-scripts.vsix",
     "verify:reproducible": "npm run build && node build/scripts/verify-reproducible-build.js",
     "patch:task": "node scripts/patch-task-version.mts"
   },
   "devDependencies": {
-    "@types/node": "24.10.8",
+    "@resvg/resvg-js": "2.6.2",
     "@types/adm-zip": "0.5.8",
+    "@types/node": "24.10.8",
     "@types/yazl": "3.3.1",
-    "adm-zip": "0.5.16",
+    "adm-zip": "0.6.1",
     "azure-pipelines-task-lib": "5.279.0",
     "esbuild": "0.25.12",
     "tfx-cli": "0.24.1",

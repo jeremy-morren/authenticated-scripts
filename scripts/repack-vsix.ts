@@ -1,4 +1,5 @@
 import fs from 'node:fs';
+import path from 'node:path';
 import AdmZip from 'adm-zip';
 import yazl from 'yazl';
 
@@ -11,9 +12,15 @@ interface VsixEntry {
 // Use fixed calendar fields and DOS-only timestamps for deterministic ZIP metadata.
 const ZIP_EPOCH = new Date(1980, 0, 1, 0, 0, 0);
 
+/** The release artifact path, named after the (patched) extension version. */
+export function releaseVsixPath(): string {
+  const { version } = JSON.parse(fs.readFileSync('vss-extension.json', 'utf8'));
+  return `dist/authenticated-scripts-v${version}.vsix`;
+}
+
 /** Packs one existing VSIX with deterministic ZIP metadata and entry order. */
-export async function repackVsix(vsixPath: string): Promise<void> {
-  const entries: VsixEntry[] = new AdmZip(vsixPath)
+export async function repackVsix(inputPath: string, outputPath: string): Promise<void> {
+  const entries: VsixEntry[] = new AdmZip(inputPath)
     .getEntries()
     .map(entry => ({
       name: entry.entryName,
@@ -24,7 +31,8 @@ export async function repackVsix(vsixPath: string): Promise<void> {
   // Bytewise sorting prevents the host locale from affecting artifact layout.
   entries.sort((left, right) => Buffer.compare(Buffer.from(left.name), Buffer.from(right.name)));
 
-  const temporaryPath = `${vsixPath}.tmp`;
+  fs.mkdirSync(path.dirname(outputPath), { recursive: true });
+  const temporaryPath = `${outputPath}.tmp`;
   const output = fs.createWriteStream(temporaryPath);
   const zip = new yazl.ZipFile();
   const completed = new Promise<void>((resolve, reject) => {
@@ -43,15 +51,14 @@ export async function repackVsix(vsixPath: string): Promise<void> {
   }
   zip.end();
   await completed;
-  fs.renameSync(temporaryPath, vsixPath);
-  console.log(`Deterministic archive size: ${fs.statSync(vsixPath).size} bytes.`);
+  fs.renameSync(temporaryPath, outputPath);
+  console.log(`Wrote ${outputPath} (${fs.statSync(outputPath).size} bytes).`);
 }
 
 async function main(): Promise<void> {
-  const vsixPath = process.argv[2];
-  if (!vsixPath) throw new Error('Pass an explicit VSIX file path.');
-  if (process.argv[3]) throw new Error('Patch source manifests with npm run patch:task before building.');
-  await repackVsix(vsixPath);
+  const [inputPath, outputPath = releaseVsixPath(), extra] = process.argv.slice(2);
+  if (!inputPath || extra) throw new Error('Usage: repack-vsix <input.vsix> [output.vsix]');
+  await repackVsix(inputPath, outputPath);
 }
 
 if (require.main === module) {

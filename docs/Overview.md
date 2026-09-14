@@ -37,7 +37,7 @@ Please note that this task does **not** persist the environment variables for lo
     inlineScript: |
       $password = ConvertTo-SecureString $env:AS_SC_PASSWORD -AsPlainText -Force
       $credential = [pscredential]::new($env:AS_SC_USERNAME, $password)
-      Invoke-RestMethod -Uri "$env:AS_SC_URL/health" -Credential $credential
+      Invoke-RestMethod -Uri $env:AS_SC_URL -Credential $credential
 ```
 
 Explicit and shorthand script paths are resolved against the pipeline working directory. Service connection fields are passed through without validation; null or undefined values become empty strings.
@@ -96,6 +96,20 @@ To simply expose the service connection as job variables, use the `scriptLocatio
 This creates `PARTNER_API_URL`, `PARTNER_API_USERNAME`, and `PARTNER_API_PASSWORD`. Username and password are marked secret and are masked in task output. 
 
 Variables are available to subsequent tasks in the same job, not the task that creates them.
+
+## Acknowledgements
+
+This task is heavily inspired by [cloudpups/authenticated-scripts](https://github.com/cloudpups/authenticated-scripts), with ergonomic improvements and update to `Node_24` runtime.
+
+## EULA
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
 
 [serviceConnection]: https://learn.microsoft.com/en-us/azure/devops/pipelines/library/service-endpoints
 

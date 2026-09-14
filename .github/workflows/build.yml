@@ -1,20 +1,25 @@
 name: Test, package, and draft release
 
-on: push
+on:
+  push:
+    branches: [main]
+  pull_request:
 
 permissions:
-  contents: write
+  contents: read
 
+# Pushes to main share one queue from testing through draft creation; pull requests queue per PR.
 concurrency:
-  group: draft-release
+  group: ${{ github.event_name == 'pull_request' && format('pull-request-{0}', github.event.pull_request.number) || 'draft-release' }}
   cancel-in-progress: false
   queue: max
 
-# Verifiable-build controls: the runtime, package manager, and dependency graph are pinned; 
+# Verifiable-build controls: the runtime, package manager, and dependency graph are pinned;
 # CI rebuilds the same inputs twice before any release is published.
 jobs:
   test:
     strategy:
+      fail-fast: false
       matrix:
         os: [ubuntu-latest, windows-latest]
     runs-on: ${{ matrix.os }}
@@ -30,11 +35,58 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
 
-      - run: npm test
-  
+      - run: npm run build
+
+      # Reporter flags must precede the test files, and Node does not create the destination directory.
+      - name: Run tests
+        shell: bash
+        run: |
+          mkdir -p test-results
+          node --test \
+            --test-reporter=spec --test-reporter-destination=stdout \
+            --test-reporter=junit --test-reporter-destination=test-results/${{ matrix.os }}.xml \
+            build/test/*.test.js
+
+      # Node writes top-level tests as bare <testcase> elements, which JUnit parsers ignore outside a <testsuite>.
+      - name: Group test results into a suite
+        if: ${{ !cancelled() && hashFiles(format('test-results/{0}.xml', matrix.os)) != '' }}
+        shell: bash
+        run: sed -i 's|<testsuites>|<testsuites><testsuite name="${{ matrix.os }}">|; s|</testsuites>|</testsuite></testsuites>|' "test-results/${{ matrix.os }}.xml"
+
+      - uses: actions/upload-artifact@v7
+        if: ${{ !cancelled() }}
+        with:
+          name: test-results-${{ matrix.os }}
+          path: test-results/
+
+  test-results:
+    name: Publish test results
+    needs: test
+    if: ${{ !cancelled() }}
+    runs-on: ubuntu-latest
+    permissions:
+      checks: write
+      contents: read
+      issues: read
+      pull-requests: write
+    steps:
+      - uses: actions/download-artifact@v8
+        with:
+          pattern: test-results-*
+          path: test-results
+
+      # Writes the job summary on every run; comments only on pull requests.
+      - uses: EnricoMi/publish-unit-test-result-action@v2
+        with:
+          files: test-results/**/*.xml
+          comment_mode: ${{ github.event_name == 'pull_request' && 'always' || 'off' }}
+
   draft-release:
     needs: test
+    if: ${{ github.event_name == 'push' }}
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
     steps:
       - uses: actions/checkout@v7
 
@@ -55,7 +107,7 @@ jobs:
       - uses: actions/upload-artifact@v7
         with:
           name: authenticated-scripts-vsix
-          path: dist/authenticated-scripts.vsix
+          path: dist/authenticated-scripts-v*.vsix
 
       - name: Replace the draft release with the tested VSIX
         run: |
@@ -67,6 +119,12 @@ jobs:
             fi
             gh release delete "v$VERSION" --yes
           fi
-          gh release create "v$VERSION" dist/authenticated-scripts.vsix --draft --target "$GITHUB_SHA" --title "v$VERSION" --generate-notes
+          # A release that was published and then deleted leaves its tag behind. 
+          # GitHub ignores --target when the tag already exists, so remove it for the draft to target this commit.
+          if gh api "repos/$GITHUB_REPOSITORY/git/ref/tags/v$VERSION" --silent 2>/dev/null; then
+            echo "Deleting leftover tag v$VERSION."
+            gh api --method DELETE "repos/$GITHUB_REPOSITORY/git/refs/tags/v$VERSION" --silent
+          fi
+          gh release create "v$VERSION" "dist/authenticated-scripts-v$VERSION.vsix" --draft --target "$GITHUB_SHA" --title "v$VERSION" --generate-notes
         env:
           GH_TOKEN: ${{ github.token }}

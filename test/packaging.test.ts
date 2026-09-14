@@ -66,9 +66,9 @@ test('repacking is identical across independent archives and repeat runs', t => 
   const results = ['first', 'second'].map(name => {
     const file = path.join(directory, `${name}.vsix`);
     zip.writeZip(file);
-    execFileSync(process.execPath, [path.resolve('build/scripts/repack-vsix.js'), file]);
+    execFileSync(process.execPath, [path.resolve('build/scripts/repack-vsix.js'), file, file]);
     const first = fs.readFileSync(file);
-    execFileSync(process.execPath, [path.resolve('build/scripts/repack-vsix.js'), file]);
+    execFileSync(process.execPath, [path.resolve('build/scripts/repack-vsix.js'), file, file]);
     assert.deepEqual(fs.readFileSync(file), first);
     return first;
   });
