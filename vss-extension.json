@@ -1,0 +1,48 @@
+{
+  "manifestVersion": 1,
+  "id": "authenticated-scripts",
+  "name": "Authenticated Scripts",
+  "publisher": "jeremy-morren",
+  "version": "0.1.0",
+  "description": "Allows using Generic Azure DevOps service connections in pipelines.",
+  "categories": ["Azure Pipelines"],
+  "tags": [
+    "service-connection", 
+    "authentication", 
+    "pwsh",
+    "bash", 
+    "powershell", 
+    "batch"
+  ],
+  "public": true,
+  "targets": [{ "id": "Microsoft.VisualStudio.Services" }],
+  "files": [
+    { "path": "tasks/AuthenticatedScripts" },
+    { "path": "LICENSE.txt", "addressable": true },
+    { "path": "docs", "addressable": true}
+  ],
+  "content": {
+    "details": { "path": "docs/Overview.md" },
+    "license": { "path": "LICENSE.txt" }
+  },
+  "links": {
+    "home": { "uri": "https://github.com/jeremy-morren/authenticated-scripts" },
+    "repository": { "uri": "https://github.com/jeremy-morren/authenticated-scripts" },
+    "issues": { "uri": "https://github.com/jeremy-morren/authenticated-scripts/issues" }
+  },
+  "badges": [
+    {
+      "href": "https://github.com/jeremy-morren/authenticated-scripts/actions/workflows/publish.yml",
+      "uri": "https://img.shields.io/github/actions/workflow/status/jeremy-morren/authenticated-scripts/publish.yml?label=Release",
+      "description": "Release"
+    }
+  ],
+  "contributions": [
+    {
+      "id": "authenticated-scripts-task",
+      "type": "ms.vss-distributed-task.task",
+      "targets": ["ms.vss-distributed-task.tasks"],
+      "properties": { "name": "tasks/AuthenticatedScripts" }
+    }
+  ]
+}

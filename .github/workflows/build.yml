@@ -1,0 +1,72 @@
+name: Test, package, and draft release
+
+on: push
+
+permissions:
+  contents: write
+
+concurrency:
+  group: draft-release
+  cancel-in-progress: false
+  queue: max
+
+# Verifiable-build controls: the runtime, package manager, and dependency graph are pinned; 
+# CI rebuilds the same inputs twice before any release is published.
+jobs:
+  test:
+    strategy:
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: ./.github/actions/setup-toolchain
+
+      - run: npm ci
+
+      - name: Patch source versions before building
+        run: npm run patch:task
+        env:
+          GH_TOKEN: ${{ github.token }}
+
+      - run: npm test
+  
+  draft-release:
+    needs: test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: ./.github/actions/setup-toolchain
+
+      - run: npm ci
+
+      - name: Patch source versions before building
+        run: npm run patch:task
+        env:
+          GH_TOKEN: ${{ github.token }}
+
+      # Ensure that two independent packages of the same checkout have identical bytes.
+      - run: npm run verify:reproducible
+
+      - run: npm run package
+
+      - uses: actions/upload-artifact@v7
+        with:
+          name: authenticated-scripts-vsix
+          path: dist/authenticated-scripts.vsix
+
+      - name: Replace the draft release with the tested VSIX
+        run: |
+          VERSION=$(node -p "require('./vss-extension.json').version")
+          if IS_DRAFT=$(gh release view "v$VERSION" --json isDraft --jq .isDraft); then
+            if [ "$IS_DRAFT" != "true" ]; then
+              echo "Release v$VERSION is published; refusing to delete it." >&2
+              exit 1
+            fi
+            gh release delete "v$VERSION" --yes
+          fi
+          gh release create "v$VERSION" dist/authenticated-scripts.vsix --draft --target "$GITHUB_SHA" --title "v$VERSION" --generate-notes
+        env:
+          GH_TOKEN: ${{ github.token }}

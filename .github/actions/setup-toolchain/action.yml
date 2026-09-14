@@ -1,0 +1,34 @@
+name: Set up repository toolchain
+description: Install and verify the tool versions declared in package.json.
+
+inputs:
+  cache:
+    description: Package manager cache; use an empty string to disable caching.
+    default: npm
+  install-tfx:
+    description: Install the pinned TFX CLI globally for artifact publishing.
+    default: 'false'
+
+runs:
+  using: composite
+  steps:
+    - uses: actions/setup-node@v7
+      with:
+        node-version-file: package.json
+        cache: ${{ inputs.cache }}
+    - name: Pin npm
+      shell: bash
+      run: |
+        NPM_VERSION=$(node -p "require('./package.json').engines.npm")
+        npm install --global "npm@$NPM_VERSION"
+    - name: Verify toolchain and local version metadata
+      shell: bash
+      run: |
+        node -e "const assert = require('node:assert/strict'); const fs = require('node:fs'); const pkg = require('./package.json'); assert.equal(process.versions.node, pkg.engines.node); assert.equal(fs.readFileSync('.nvmrc', 'utf8').trim(), pkg.engines.node); assert.equal(pkg.packageManager, 'npm@' + pkg.engines.npm);"
+        test "$(npm --version)" = "$(node -p "require('./package.json').engines.npm")"
+    - name: Pin publishing CLI
+      if: inputs.install-tfx == 'true'
+      shell: bash
+      run: |
+        TFX_VERSION=$(node -p "require('./package.json').devDependencies['tfx-cli']")
+        npm install --global "tfx-cli@$TFX_VERSION"

@@ -1,0 +1,124 @@
+{
+  "$schema": "https://raw.githubusercontent.com/microsoft/azure-pipelines-task-lib/master/tasks.schema.json",
+  "id": "b15d3358-1d0d-4d9e-8b56-a4be2e6c22b5",
+  "name": "AuthenticatedScripts",
+  "friendlyName": "Authenticated Scripts",
+  "description": "Use a service connection with scripts instead of pasting secrets into variables!",
+  "helpMarkDown": "For script modes, the Generic service connection is exposed as `AS_SC_URL`, `AS_SC_USERNAME`, and `AS_SC_PASSWORD`. \n\nIn `createVariables` mode, the task creates job variables `${variablePrefix}_URL`, `${variablePrefix}_USERNAME`, and `${variablePrefix}_PASSWORD`; the username and password variables are secret.",
+  "category": "Utility",
+  "author": "Authenticated Scripts contributors",
+  "version": {
+    "Major": 2,
+    "Minor": 0, 
+    "Patch": 0 
+  },
+  "instanceNameFormat": "Authenticated script",
+  "visibility": ["Build", "Release"],
+  "inputs": [
+    {
+      "name": "serviceConnection",
+      "type": "connectedService:Generic",
+      "label": "Service connection",
+      "required": true,
+      "helpMarkDown": "The Generic service connection to use for the authenticated script."
+    },
+    {
+      "name": "scriptLocation",
+      "type": "pickList",
+      "label": "Script location",
+      "required": false,
+      "defaultValue": "inlineScript",
+      "options": {
+        "scriptPath": "Script path",
+        "inlineScript": "Inline script",
+        "createVariables": "Create pipeline variables"
+      }
+    },
+    {
+      "name": "scriptType",
+      "type": "pickList",
+      "label": "Script type",
+      "required": false,
+      "defaultValue": "",
+      "visibleRule": "scriptLocation != createVariables",
+      "options": {
+        "pwsh": "PowerShell Core (pwsh)",
+        "powershell": "Windows PowerShell (powershell.exe) - Windows only",
+        "batch": "Windows Batch file (cmd.exe) - Windows only",
+        "bash": "Bash script - Linux and macOS only"
+      }
+    },
+    {
+      "name": "scriptFile",
+      "type": "filePath",
+      "label": "Script file",
+      "required": false,
+      "visibleRule": "scriptLocation = scriptPath",
+      "helpMarkDown": "Script file to run with the configured shell. Required when Script location is Script path."
+    },
+    {
+      "name": "inlineScript",
+      "type": "multiLine",
+      "label": "Inline script",
+      "required": false,
+      "visibleRule": "scriptLocation = inlineScript",
+      "properties": { "resizable": true, "rows": "10" },
+      "helpMarkDown": "Script to run with the configured shell. Required when Script location is Inline script."
+    },
+    {
+      "name": "parameters",
+      "type": "string",
+      "label": "Parameters",
+      "required": false,
+      "visibleRule": "scriptLocation = scriptPath",
+      "helpMarkDown": "The parameters passed to the script file."
+    },
+    {
+      "name": "variablePrefix",
+      "type": "string",
+      "label": "Variable prefix",
+      "required": false,
+      "visibleRule": "scriptLocation = createVariables",
+      "helpMarkDown": "The prefix for the pipeline variables created by the script. Required when Script location is Create pipeline variables."
+    },
+    {
+      "name": "pwsh",
+      "type": "multiLine",
+      "label": "pwsh YAML shorthand",
+      "required": false,
+      "defaultValue": "",
+      "visibleRule": "false",
+      "helpMarkDown": "Configures script type as PowerShell Core (`pwsh`). Supplies inline script content or a script path, depending on scriptLocation."
+    },
+    {
+      "name": "powershell",
+      "type": "multiLine",
+      "label": "PowerShell YAML shorthand",
+      "required": false,
+      "defaultValue": "",
+      "visibleRule": "false",
+      "helpMarkDown": "Configures script type as Windows PowerShell (`powershell.exe`). Supplies inline script content or a script path, depending on scriptLocation."
+    },
+    {
+      "name": "batch",
+      "type": "multiLine",
+      "label": "Batch YAML shorthand",
+      "required": false,
+      "defaultValue": "",
+      "visibleRule": "false",
+      "helpMarkDown": "Configures script type as Windows Batch file (`cmd.exe`). Supplies inline script content or a script path, depending on scriptLocation."
+    },
+    {
+      "name": "bash",
+      "type": "multiLine",
+      "label": "Bash YAML shorthand",
+      "required": false,
+      "defaultValue": "",
+      "visibleRule": "false",
+      "helpMarkDown": "Configures script type as Bash script. Supplies inline script content or a script path, depending on scriptLocation."
+    }
+  ],
+  "execution": {
+    "Node24": { "target": "dist/index.js" }
+  }
+}
