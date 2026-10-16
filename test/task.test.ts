@@ -112,6 +112,31 @@ test('inline files are removed after success, script failure, and credential fai
   }
 });
 
+test('batch defaults to echo off, permits echo on, and preserves goto :eof failures', { skip: process.platform !== 'win32' }, t => {
+  const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'batch echo '));
+  t.after(() => fs.rmSync(directory, { recursive: true, force: true }));
+  const contents = 'echo QUIET=[ran]\necho on\necho LOUD=[ran]\ncmd /c exit 7\ngoto :eof\n';
+  const file = path.join(directory, 'echo script.cmd');
+  fs.writeFileSync(file, contents);
+  for (const scriptPath of [false, true]) {
+    const result = runTask(directory, {
+      INPUT_SERVICECONNECTION: 'TEST',
+      INPUT_SCRIPTTYPE: 'batch',
+      INPUT_SCRIPTLOCATION: scriptPath ? 'scriptPath' : 'inlineScript',
+      [scriptPath ? 'INPUT_SCRIPTFILE' : 'INPUT_INLINESCRIPT']: scriptPath ? file : contents
+    });
+    assert.equal(result.status, 0, result.stdout + result.stderr);
+    assert.match(result.stdout, /task.complete result=Failed/);
+    assert.match(result.stdout, /batch exited with code 7/);
+    assert.match(result.stdout, /^QUIET=\[ran\]\r?$/m);
+    assert.doesNotMatch(result.stdout, />echo QUIET=/);
+    assert.match(result.stdout, />echo LOUD=\[ran\]/);
+    assert.match(result.stdout, /^LOUD=\[ran\]\r?$/m);
+    assert.deepEqual(fs.readdirSync(directory).filter(name => name.startsWith('authenticated-scripts-')), []);
+  }
+  assert.equal(fs.readFileSync(file, 'utf8'), contents);
+});
+
 test('the agent default for an unset scriptFile is treated as unset', t => {
   const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'default-path-task-'));
   t.after(() => fs.rmSync(directory, { recursive: true, force: true }));

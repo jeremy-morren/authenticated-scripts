@@ -27,15 +27,31 @@
     "license": { "path": "LICENSE.txt" }
   },
   "links": {
-    "home": { "uri": "https://github.com/jeremy-morren/authenticated-scripts" },
-    "repository": { "uri": "https://github.com/jeremy-morren/authenticated-scripts" },
-    "issues": { "uri": "https://github.com/jeremy-morren/authenticated-scripts/issues" }
+    "home": {
+      "uri": "https://github.com/jeremy-morren/authenticated-scripts"
+    },
+    "repository": {
+      "uri": "https://github.com/jeremy-morren/authenticated-scripts"
+    },
+    "issues": {
+      "uri": "https://github.com/jeremy-morren/authenticated-scripts/issues"
+    }
   },
   "badges": [
     {
+      "href": "https://github.com/jeremy-morren/authenticated-scripts",
+      "uri": "https://img.shields.io/badge/GitHub-Repository-181717?logo=github",
+      "description": "GitHub repository"
+    },
+    {
+      "href": "https://github.com/jeremy-morren/authenticated-scripts/actions/workflows/build.yml",
+      "uri": "https://img.shields.io/github/actions/workflow/status/jeremy-morren/authenticated-scripts/build.yml?label=Build",
+      "description": "Build"
+    },
+    {
       "href": "https://github.com/jeremy-morren/authenticated-scripts/actions/workflows/publish.yml",
-      "uri": "https://img.shields.io/github/actions/workflow/status/jeremy-morren/authenticated-scripts/publish.yml?label=Release",
-      "description": "Release"
+      "uri": "https://img.shields.io/github/actions/workflow/status/jeremy-morren/authenticated-scripts/publish.yml?label=Publish",
+      "description": "Publish"
     }
   ],
   "contributions": [

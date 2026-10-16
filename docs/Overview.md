@@ -6,6 +6,8 @@ Use a [service connection][serviceConnection] with scripts instead of pasting se
 
 Please note that these tasks are built to only use `Generic` Service Connections. No other connections will be displayed when configuring these tasks.
 
+See [authenticated-scripts](https://github.com/jeremy-morren/authenticated-scripts) for the task source.
+
 ## Features
 
 * ✅ Supply Generic Service Connection to shell:

@@ -30,7 +30,9 @@ function writeConnectionVariables(prefix: string): void {
 function temporaryScriptFile(type: ScriptType, contents: string): string {
   const extension = type === 'bash' ? '.sh' : type === 'batch' ? '.cmd' : '.ps1';
   const file = path.join(tl.getVariable('Agent.TempDirectory') || os.tmpdir(), `authenticated-scripts-${randomUUID()}${extension}`);
-  fs.writeFileSync(file, contents, 'utf8');
+  // Like CmdLineV2, allow scripts to enable echo again rather than using cmd /Q.
+  const script = type === 'batch' ? `@echo off\r\n${contents.replace(/\r?\n/g, '\r\n')}` : contents;
+  fs.writeFileSync(file, script, 'utf8');
   return file;
 }
 
@@ -98,6 +100,10 @@ async function runScript(location: Exclude<ScriptLocation, 'createVariables'>): 
         throw new Error(`Script file does not exist: ${scriptFile}`);
       }
       echoIfSingleLine(fs.readFileSync(scriptFile, 'utf8'));
+      if (type === 'batch') {
+        temporaryFile = temporaryScriptFile(type, `CALL "${scriptFile}"${parameters ? ` ${parameters}` : ''}`);
+        scriptFile = temporaryFile;
+      }
     } else {
       const contents = source.value || tl.getInputRequired('inlineScript');
       echoIfSingleLine(contents);
@@ -108,13 +114,14 @@ async function runScript(location: Exclude<ScriptLocation, 'createVariables'>): 
     const spec = commandForScript(type, scriptFile);
     const runner = tl.tool(tl.which(spec.command, true));
     runner.arg(spec.args);
-    if (location === 'scriptPath' && parameters) {
+    if (location === 'scriptPath' && parameters && type !== 'batch') {
       runner.line(parameters);
     }
 
     const result = await runner.execAsync({
       cwd,
       ignoreReturnCode: true,
+      windowsVerbatimArguments: type === 'batch',
       env: { ...process.env, ...serviceConnectionEnvironment(getConnection()) },
       outStream: process.stdout,
       errStream: process.stderr

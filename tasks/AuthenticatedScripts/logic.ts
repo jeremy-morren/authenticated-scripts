@@ -37,7 +37,8 @@ export function commandForScript(type: ScriptType, scriptFile: string): CommandS
     case 'powershell':
       return { command: type, args: ['-NoLogo', '-NoProfile', '-NonInteractive', '-File', scriptFile] };
     case 'batch':
-      return { command: scriptFile, args: [] };
+      // Match CmdLineV2 on Windows, including CALL so goto :eof preserves errorlevel.
+      return { command: process.env.ComSpec || 'cmd.exe', args: ['/D', '/E:ON', '/V:OFF', '/S', '/C', `"CALL "${scriptFile}""`] };
   }
 }
 

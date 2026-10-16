@@ -26,7 +26,10 @@ test('recognises a single-line script', () => {
 test('constructs the expected shell invocations', () => {
   assert.deepEqual(commandForScript('bash', '/tmp/test.sh'), { command: 'bash', args: ['/tmp/test.sh'] });
   assert.deepEqual(commandForScript('pwsh', 'test.ps1').args, ['-NoLogo', '-NoProfile', '-NonInteractive', '-File', 'test.ps1']);
-  assert.deepEqual(commandForScript('batch', 'test.cmd'), { command: 'test.cmd', args: [] });
+  assert.deepEqual(commandForScript('batch', 'test.cmd'), {
+    command: process.env.ComSpec || 'cmd.exe',
+    args: ['/D', '/E:ON', '/V:OFF', '/S', '/C', '"CALL "test.cmd""']
+  });
 });
 
 test('uses a shorthand as inline script content and infers its type', () => {
