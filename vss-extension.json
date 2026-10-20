@@ -37,6 +37,10 @@
       "uri": "https://github.com/jeremy-morren/authenticated-scripts/issues"
     }
   },
+  "repository": {
+    "type": "git",
+    "uri": "https://github.com/jeremy-morren/authenticated-scripts"
+  },
   "badges": [
     {
       "href": "https://github.com/jeremy-morren/authenticated-scripts",
