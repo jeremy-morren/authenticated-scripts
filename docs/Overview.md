@@ -1,5 +1,9 @@
 # Authenticated Scripts for Azure DevOps
 
+[![GitHub repository](https://img.shields.io/badge/GitHub-Repository-181717?logo=github)](https://github.com/jeremy-morren/authenticated-scripts)
+[![Build](https://img.shields.io/github/actions/workflow/status/jeremy-morren/authenticated-scripts/build.yml?label=Build)](https://github.com/jeremy-morren/authenticated-scripts/actions/workflows/build.yml)
+[![Publish](https://img.shields.io/github/actions/workflow/status/jeremy-morren/authenticated-scripts/publish.yml?label=Publish)](https://github.com/jeremy-morren/authenticated-scripts/actions/workflows/publish.yml)
+
 Use a [service connection][serviceConnection] with scripts instead of pasting secrets into variables!
 
 ### ❗ *Important note on using Service Connections* ❗
@@ -85,16 +89,20 @@ If `scriptType` is provided, it must match the provided shorthand.
 
 To simply expose the service connection as job variables, use the `scriptLocation: createVariables`.
 
-This creates `PARTNER_API_URL`, `PARTNER_API_USERNAME`, and `PARTNER_API_PASSWORD`. Username and password are marked secret and are masked in task output.
+This creates `SERVICE_API_URL`, `SERVICE_API_USERNAME`, and `SERVICE_API_PASSWORD`. Username and password are marked secret and are masked in task output.
 
 ```yaml
 - task: AuthenticatedScripts@2
   inputs:
     serviceConnection: my-generic-service
     scriptLocation: createVariables
-    variablePrefix: PARTNER_API
+    variablePrefix: SERVICE_API
 
-- bash: curl --user "$(PARTNER_API_USERNAME):$(PARTNER_API_PASSWORD)" "$(PARTNER_API_URL)/health"
+# SERVICE_API_URL, SERVICE_API_USERNAME and SERVICE_API_PASSWORD 
+# are now available as job secrets
+- bash: curl "$SERVICE_API_URL" --user "$HTTP_USER"
+  env:
+    HTTP_USER: $(SERVICE_API_USERNAME):$(SERVICE_API_PASSWORD)
 ```
 
 Variables are job-scoped hence only available to subsequent steps in the same job.
