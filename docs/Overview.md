@@ -4,13 +4,11 @@
 [![Build](https://img.shields.io/github/actions/workflow/status/jeremy-morren/authenticated-scripts/build.yml?label=Build)](https://github.com/jeremy-morren/authenticated-scripts/actions/workflows/build.yml)
 [![Publish](https://img.shields.io/github/actions/workflow/status/jeremy-morren/authenticated-scripts/publish.yml?label=Publish)](https://github.com/jeremy-morren/authenticated-scripts/actions/workflows/publish.yml)
 
-Use a [service connection][serviceConnection] with scripts instead of pasting secrets into variables!
+Use a [service connection][https://learn.microsoft.com/en-us/azure/devops/pipelines/library/service-endpoints] with scripts instead of pasting secrets into variables!
 
 ### ❗ *Important note on using Service Connections* ❗
 
 Please note that these tasks are built to only use `Generic` Service Connections. No other connections will be displayed when configuring these tasks.
-
-See [authenticated-scripts](https://github.com/jeremy-morren/authenticated-scripts) for the task source.
 
 ## Features
 
@@ -35,6 +33,13 @@ In `scriptPath` and `inlineScript` modes, the task makes these environment varia
 Please note that this task does **not** persist the environment variables for longer than the execution of the script itself.
 
 ```yaml
+# Using shorthand
+- task: AuthenticatedScripts@2
+  inputs:
+    serviceConnection: my-generic-service
+    bash: curl "$AS_SC_URL" --user "$AS_SC_USER:$AS_SC_PASSWORD"
+
+# Using scriptLocation + scriptType
 - task: AuthenticatedScripts@2
   inputs:
     serviceConnection: my-generic-service
@@ -44,6 +49,7 @@ Please note that this task does **not** persist the environment variables for lo
       $password = ConvertTo-SecureString $env:AS_SC_PASSWORD -AsPlainText -Force
       $credential = [pscredential]::new($env:AS_SC_USERNAME, $password)
       Invoke-RestMethod -Uri $env:AS_SC_URL -Credential $credential
+      
 ```
 
 Explicit and shorthand script paths are resolved against the pipeline working directory. Service connection fields are passed through without validation; null or undefined values become empty strings.
@@ -111,15 +117,6 @@ Variables are job-scoped hence only available to subsequent steps in the same jo
 
 This task is heavily inspired by [cloudpups/authenticated-scripts](https://github.com/cloudpups/authenticated-scripts), with ergonomic improvements and update to `Node_24` runtime.
 
-## EULA
+## License
 
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-SOFTWARE.
-
-[serviceConnection]: https://learn.microsoft.com/en-us/azure/devops/pipelines/library/service-endpoints
-
+This task is available under the [MIT](https://github.com/jeremy-morren/authenticated-scripts/blob/main/LICENSE.txt) license.

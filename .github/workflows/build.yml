@@ -14,14 +14,14 @@ concurrency:
   cancel-in-progress: false
   queue: max
 
-# Verifiable-build controls: the runtime, package manager, and dependency graph are pinned;
-# CI rebuilds the same inputs twice before any release is published.
+# Verifiable-build controls: the runtime, package manager, and dependency graph are pinned and packaging is
+# deterministic, so anyone can rebuild a release and compare its SHA-256.
 jobs:
   test:
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest, windows-latest]
+        os: [ubuntu-latest, windows-latest, macos-latest]
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v7
@@ -35,29 +35,14 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
 
-      - run: npm run build
-
-      # Reporter flags must precede the test files, and Node does not create the destination directory.
-      - name: Run tests
-        shell: bash
-        run: |
-          mkdir -p test-results
-          node --test \
-            --test-reporter=spec --test-reporter-destination=stdout \
-            --test-reporter=junit --test-reporter-destination=test-results/${{ matrix.os }}.xml \
-            build/test/*.test.js
-
-      # Node writes top-level tests as bare <testcase> elements, which JUnit parsers ignore outside a <testsuite>.
-      - name: Group test results into a suite
-        if: ${{ !cancelled() && hashFiles(format('test-results/{0}.xml', matrix.os)) != '' }}
-        shell: bash
-        run: sed -i 's|<testsuites>|<testsuites><testsuite name="${{ matrix.os }}">|; s|</testsuites>|</testsuite></testsuites>|' "test-results/${{ matrix.os }}.xml"
+      # Builds, then runs the tests, writing build/test-results/<platform>-<arch>.xml.
+      - run: npm test
 
       - uses: actions/upload-artifact@v7
         if: ${{ !cancelled() }}
         with:
           name: test-results-${{ matrix.os }}
-          path: test-results/
+          path: build/test-results/
 
   test-results:
     name: Publish test results
@@ -98,9 +83,6 @@ jobs:
         run: npm run patch:task
         env:
           GH_TOKEN: ${{ github.token }}
-
-      # Ensure that two independent packages of the same checkout have identical bytes.
-      - run: npm run verify:reproducible
 
       - run: npm run package
 

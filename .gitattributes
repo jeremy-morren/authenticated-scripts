@@ -1,3 +1,2 @@
-* text=auto
-
-*.sh text eol=lf
+# Check out LF on every OS so packaged files (docs, manifests, scripts) are byte-identical everywhere.
+* text=auto eol=lf

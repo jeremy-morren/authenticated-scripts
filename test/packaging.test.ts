@@ -4,8 +4,9 @@ import os from 'node:os';
 import path from 'node:path';
 import { execFileSync, spawnSync } from 'node:child_process';
 import test from 'node:test';
-import AdmZip from 'adm-zip';
+import { unzipSync, zipSync, type Zippable } from 'fflate';
 import { nextReleaseVersion } from '../scripts/release-version.mts';
+import { normalizeLineEndings } from '../scripts/repack-vsix';
 
 test('source patching runs before a build and the CI guard rejects patch zero', t => {
   const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'source-version-'));
@@ -57,15 +58,28 @@ test('source patching runs before a build and the CI guard rejects patch zero', 
   assert.equal(JSON.parse(fs.readFileSync(taskPath, 'utf8')).version.Patch, 1);
 });
 
-test('repacking is identical across independent archives and repeat runs', t => {
+test('tfx-generated manifests are normalized to LF so Windows and Linux packages match', () => {
+  const crlf = Buffer.from('<?xml version="1.0"?>\r\n<Types>\r\n</Types>');
+  assert.equal(Buffer.from(normalizeLineEndings('extension.vsixmanifest', crlf)).toString(), '<?xml version="1.0"?>\n<Types>\n</Types>');
+  assert.equal(Buffer.from(normalizeLineEndings('[Content_Types].xml', crlf)).toString(), '<?xml version="1.0"?>\n<Types>\n</Types>');
+  assert.equal(Buffer.from(normalizeLineEndings('extension.vsomanifest', Buffer.from('{\r\n}'))).toString(), '{\n}');
+  // Packaged content is left byte-for-byte as staged.
+  assert.equal(normalizeLineEndings('docs/Overview.md', crlf), crlf);
+});
+
+test('repacking compresses and is identical across differently built archives and repeat runs', t => {
   const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'vsix-repeat-'));
   t.after(() => fs.rmSync(directory, { recursive: true, force: true }));
-  const zip = new AdmZip();
-  zip.addFile('folder/', Buffer.alloc(0));
-  zip.addFile('folder/example.txt', Buffer.from('example'));
-  const results = ['first', 'second'].map(name => {
-    const file = path.join(directory, `${name}.vsix`);
-    zip.writeZip(file);
+  const text = Buffer.from('compressible example text\n'.repeat(1000));
+  const manifest = Buffer.from('<?xml version="1.0"?>\r\n<PackageManifest />\r\n');
+  // Same contents, but different entry order, timestamps, and compression.
+  const inputs: Zippable[] = [
+    { 'folder/': new Uint8Array(0), 'folder/example.txt': text, 'extension.vsixmanifest': manifest },
+    { 'extension.vsixmanifest': [manifest, { level: 0 }], 'folder/example.txt': [text, { level: 1, mtime: new Date(2020, 5, 1) }], 'folder/': new Uint8Array(0) }
+  ];
+  const results = inputs.map((files, index) => {
+    const file = path.join(directory, `${index}.vsix`);
+    fs.writeFileSync(file, zipSync(files));
     execFileSync(process.execPath, [path.resolve('build/scripts/repack-vsix.js'), file, file]);
     const first = fs.readFileSync(file);
     execFileSync(process.execPath, [path.resolve('build/scripts/repack-vsix.js'), file, file]);
@@ -73,6 +87,11 @@ test('repacking is identical across independent archives and repeat runs', t => 
     return first;
   });
   assert.deepEqual(results[0], results[1]);
+  assert.ok(results[0].length < text.length / 10, `expected compressed output, got ${results[0].length} bytes`);
+  const repacked = unzipSync(results[0]);
+  assert.deepEqual(Object.keys(repacked), ['extension.vsixmanifest', 'folder/', 'folder/example.txt']);
+  assert.deepEqual(Buffer.from(repacked['folder/example.txt']), text);
+  assert.equal(Buffer.from(repacked['extension.vsixmanifest']).toString(), '<?xml version="1.0"?>\n<PackageManifest />\n');
 });
 
 test('release patches come from the highest published release, excluding drafts, in the task version line', () => {
