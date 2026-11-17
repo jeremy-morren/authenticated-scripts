@@ -14,7 +14,7 @@ Please note that these tasks are built to only use `Generic` Service Connections
 
 * ✅ Supply Generic Service Connection to shell:
   - `Powershell core` (`pwsh`)
-  - `bash` (all platforms, same as `Bash@3`. On Windows uses `bash` from `PATH`, usually Git Bash)
+  - `bash` (all platforms, same as `Bash@3`. On Windows uses `bash` from `PATH`, preferring Git Bash)
   - `powershell` (`powershell.exe`, Windows only)
   - `batch` (`cmd.exe`, Windows only)
 * ✅ Shorthand syntax for clean yaml
