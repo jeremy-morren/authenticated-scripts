@@ -6,6 +6,7 @@ on:
 
 permissions:
   contents: read
+  attestations: read
 
 concurrency:
   group: marketplace-publish
@@ -20,6 +21,10 @@ jobs:
     environment:
       name: 'Visual Studio Marketplace'
       url: https://marketplace.visualstudio.com/items?itemName=jeremy-morren.authenticatedscripts
+    env:
+      GH_TOKEN: ${{ github.token }}
+      GH_REPO: ${{ github.repository }}
+      RELEASE_TAG: ${{ github.event.release.tag_name }}
     steps:
       - uses: actions/checkout@v7
 
@@ -30,14 +35,26 @@ jobs:
 
       - name: Download the published release VSIX
         run: gh release download "$RELEASE_TAG" --pattern "authenticated-scripts-$RELEASE_TAG.vsix" --dir dist
-        env:
-          GH_TOKEN: ${{ github.token }}
-          GH_REPO: ${{ github.repository }}
-          RELEASE_TAG: ${{ github.event.release.tag_name }}
+
+      # Publishing an immutable release locks its tag and assets, and GitHub signs a release attestation.
+      # Only publish a VSIX that is attested both as this release's asset and as built by this repository's CI.
+      - name: Verify the release and build attestations
+        run: |
+          VSIX="dist/authenticated-scripts-$RELEASE_TAG.vsix"
+          if [ "$(gh release view "$RELEASE_TAG" --json isImmutable --jq .isImmutable)" != "true" ]; then
+            echo "Release $RELEASE_TAG is not immutable; enable immutable releases and publish a new release." >&2
+            exit 1
+          fi
+          gh release verify "$RELEASE_TAG"
+          gh release verify-asset "$RELEASE_TAG" "$VSIX"
+          gh attestation verify "$VSIX" \
+            --repo "$GH_REPO" \
+            --signer-workflow "$GH_REPO/.github/workflows/build.yml" \
+            --source-ref refs/heads/main \
+            --deny-self-hosted-runners
 
       # Marketplace validation runs asynchronously after upload; don't hold the job open waiting for it.
       - name: Publish the release artifact to Visual Studio Marketplace
         run: tfx extension publish --vsix "dist/authenticated-scripts-$RELEASE_TAG.vsix" --auth-type pat --token "$PUBLISH_TOKEN" --no-wait-validation
         env:
           PUBLISH_TOKEN: ${{ secrets.PUBLISH_TOKEN }}
-          RELEASE_TAG: ${{ github.event.release.tag_name }}

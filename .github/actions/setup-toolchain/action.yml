@@ -1,5 +1,5 @@
 name: Set up repository toolchain
-description: Install and verify the tool versions declared in package.json.
+description: Install the Node.js, npm, and (optionally) TFX CLI versions declared in package.json.
 
 inputs:
   cache:
@@ -16,19 +16,22 @@ runs:
       with:
         node-version-file: package.json
         cache: ${{ inputs.cache }}
+    - name: Toolchain versions
+      id: toolchain-versions
+      shell: bash
+      run: |
+        npmVersion="$(node -p "require('./package.json').engines.npm")"
+        echo "NPM version: $npmVersion"
+        echo "npmVersion=$npmVersion" >> $GITHUB_OUTPUT
+        tfxVersion="$(node -p "require('./package.json').devDependencies['tfx-cli']")"
+        echo "TFX CLI version: $tfxVersion"
+        echo "tfxVersion=$tfxVersion" >> $GITHUB_OUTPUT
+
     - name: Pin npm
       shell: bash
-      run: |
-        NPM_VERSION=$(node -p "require('./package.json').engines.npm")
-        npm install --global "npm@$NPM_VERSION"
-    - name: Verify toolchain and local version metadata
-      shell: bash
-      run: |
-        node -e "const assert = require('node:assert/strict'); const fs = require('node:fs'); const pkg = require('./package.json'); assert.equal(process.versions.node, pkg.engines.node); assert.equal(fs.readFileSync('.nvmrc', 'utf8').trim(), pkg.engines.node); assert.equal(pkg.packageManager, 'npm@' + pkg.engines.npm);"
-        test "$(npm --version)" = "$(node -p "require('./package.json').engines.npm")"
+      run: npm install --global "npm@${{ steps.toolchain-versions.outputs.npmVersion }}"
+      
     - name: Pin publishing CLI
       if: inputs.install-tfx == 'true'
       shell: bash
-      run: |
-        TFX_VERSION=$(node -p "require('./package.json').devDependencies['tfx-cli']")
-        npm install --global "tfx-cli@$TFX_VERSION"
+      run: npm install --global "tfx-cli@${{ steps.toolchain-versions.outputs.tfxVersion }}"

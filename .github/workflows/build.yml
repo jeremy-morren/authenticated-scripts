@@ -15,7 +15,7 @@ concurrency:
   queue: max
 
 # Verifiable-build controls: the runtime, package manager, and dependency graph are pinned and packaging is
-# deterministic, so anyone can rebuild a release and compare its SHA-256.
+# deterministic, so anyone can rebuild a release and compare its SHA-256. CI attests the VSIX it drafts.
 jobs:
   test:
     strategy:
@@ -72,6 +72,10 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: write
+      # Build provenance attestation: OIDC token for Sigstore signing, then persist the attestation.
+      id-token: write
+      attestations: write
+      artifact-metadata: write
     steps:
       - uses: actions/checkout@v7
 
@@ -86,14 +90,29 @@ jobs:
 
       - run: npm run package
 
+      - name: Read the patched version
+        id: version
+        run: echo "version=$(node -p "require('./vss-extension.json').version")" >> "$GITHUB_OUTPUT"
+
+      - name: Attest build provenance for the VSIX
+        id: attest
+        uses: actions/attest@v4
+        with:
+          subject-path: dist/authenticated-scripts-v${{ steps.version.outputs.version }}.vsix
+
+      # Ship the Sigstore bundle with the release so the VSIX can also be verified offline.
+      - name: Collect release assets
+        run: cp "${{ steps.attest.outputs.bundle-path }}" "dist/authenticated-scripts-v$VERSION.vsix.sigstore.json"
+        env:
+          VERSION: ${{ steps.version.outputs.version }}
+
       - uses: actions/upload-artifact@v7
         with:
           name: authenticated-scripts-vsix
-          path: dist/authenticated-scripts-v*.vsix
+          path: dist/authenticated-scripts-v${{ steps.version.outputs.version }}.vsix*
 
       - name: Replace the draft release with the tested VSIX
         run: |
-          VERSION=$(node -p "require('./vss-extension.json').version")
           if IS_DRAFT=$(gh release view "v$VERSION" --json isDraft --jq .isDraft); then
             if [ "$IS_DRAFT" != "true" ]; then
               echo "Release v$VERSION is published; refusing to delete it." >&2
@@ -107,6 +126,10 @@ jobs:
             echo "Deleting leftover tag v$VERSION."
             gh api --method DELETE "repos/$GITHUB_REPOSITORY/git/refs/tags/v$VERSION" --silent
           fi
-          gh release create "v$VERSION" "dist/authenticated-scripts-v$VERSION.vsix" --draft --target "$GITHUB_SHA" --title "v$VERSION" --generate-notes
+          gh release create "v$VERSION" \
+            "dist/authenticated-scripts-v$VERSION.vsix" \
+            "dist/authenticated-scripts-v$VERSION.vsix.sigstore.json" \
+            --draft --target "$GITHUB_SHA" --title "v$VERSION" --generate-notes
         env:
           GH_TOKEN: ${{ github.token }}
+          VERSION: ${{ steps.version.outputs.version }}
