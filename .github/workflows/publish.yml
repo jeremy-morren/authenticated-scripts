@@ -18,7 +18,7 @@ jobs:
     # The environment's protection rules (e.g. required reviewers) gate every Marketplace publish.
     # Store PUBLISH_TOKEN (a Marketplace personal access token) as an environment secret so only this job can read it.
     environment:
-      name: Visual Studio Marketplace
+      name: 'Visual Studio Marketplace'
       url: https://marketplace.visualstudio.com/items?itemName=jeremy-morren.authenticatedscripts
     steps:
       - uses: actions/checkout@v7

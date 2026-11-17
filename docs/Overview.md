@@ -14,7 +14,7 @@ Please note that these tasks are built to only use `Generic` Service Connections
 
 * ✅ Supply Generic Service Connection to shell:
   - `Powershell core` (`pwsh`)
-  - `bash` (linux & macOS only)
+  - `bash` (all platforms, same as `Bash@3`. On Windows uses `bash` from `PATH`, usually Git Bash)
   - `powershell` (`powershell.exe`, Windows only)
   - `batch` (`cmd.exe`, Windows only)
 * ✅ Shorthand syntax for clean yaml
@@ -54,9 +54,9 @@ Please note that this task does **not** persist the environment variables for lo
 
 Explicit and shorthand script paths are resolved against the pipeline working directory. Service connection fields are passed through without validation; null or undefined values become empty strings.
 
-`scriptPath` accepts `parameters`, which are passed to the script.
+`scriptPath` accepts `parameters`, which are passed to the script. For `bash`, like the built-in Bash@3 task, the script runs as `exec bash '<scriptFile>' <parameters>`, so bash parses the parameters: quoting, `$VARIABLE` expansion (including `$AS_SC_*`), and command substitution all work.
 
-Supported `scriptType` values are `pwsh` (default), `powershell`, `batch`, and `bash`. `batch` and `powershell` are only available on Windows agents; `bash` is only available on Linux and macOS agents.
+Supported `scriptType` values are `pwsh` (default), `powershell`, `batch`, and `bash`. `batch` and `powershell` are only available on Windows agents. Like Bash@3, `bash` runs on every agent and uses the first `bash` on `PATH`, translating script paths on Windows. On Windows, Git Bash is preferred over WSL's `bash.exe`, which would not receive the `AS_SC_*` variables.
 
 ## YAML shorthands
 

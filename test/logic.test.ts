@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { commandForScript, isSingleLine, resolveScriptSource, serviceConnectionEnvironment, variableNames } from '../tasks/AuthenticatedScripts/logic';
+import { bashWrapperScript, commandForScript, gitBashCandidates, isSingleLine, isWslBash, resolveScriptSource, serviceConnectionEnvironment, variableNames } from '../tasks/AuthenticatedScripts/logic';
 
 test('maps Generic service-connection fields to script environment variables', () => {
   assert.deepEqual(serviceConnectionEnvironment({ url: 'https://example.test', username: 'alice', password: 'secret' }), {
@@ -30,6 +30,27 @@ test('constructs the expected shell invocations', () => {
     command: process.env.ComSpec || 'cmd.exe',
     args: ['/D', '/E:ON', '/V:OFF', '/S', '/C', '"CALL "test.cmd""']
   });
+});
+
+test('recognises WSL bash launchers and finds Git Bash beside git or in Program Files', () => {
+  assert.equal(isWslBash('C:\\Windows\\system32\\bash.exe'), true);
+  assert.equal(isWslBash('C:\\WINDOWS\\Sysnative\\bash.exe'), true);
+  assert.equal(isWslBash('C:\\Users\\me\\AppData\\Local\\Microsoft\\WindowsApps\\bash.exe'), true);
+  assert.equal(isWslBash('C:\\Program Files\\Git\\bin\\bash.exe'), false);
+  assert.equal(isWslBash('C:\\Program Files\\Git\\usr\\bin\\bash.exe'), false);
+
+  const env = { ProgramW6432: 'C:\\Program Files', ProgramFiles: 'C:\\Program Files', 'ProgramFiles(x86)': 'C:\\Program Files (x86)' };
+  const defaults = ['C:\\Program Files\\Git\\bin\\bash.exe', 'C:\\Program Files (x86)\\Git\\bin\\bash.exe'];
+  assert.deepEqual(gitBashCandidates(undefined, env), defaults);
+  for (const git of ['D:\\Tools\\Git\\cmd\\git.exe', 'D:\\Tools\\Git\\bin\\git.exe', 'D:\\Tools\\Git\\mingw64\\bin\\git.exe']) {
+    assert.deepEqual(gitBashCandidates(git, env), ['D:\\Tools\\Git\\bin\\bash.exe', ...defaults]);
+  }
+  assert.deepEqual(gitBashCandidates('C:\\Program Files\\Git\\cmd\\git.exe', env), defaults);
+});
+
+test('wraps bash script paths like Bash@3, quoting the path and leaving parameters to bash', () => {
+  assert.equal(bashWrapperScript('/work/test.sh', ''), "exec bash '/work/test.sh'");
+  assert.equal(bashWrapperScript("/work/it's here.sh", '"hello world" "$AS_SC_USERNAME"'), `exec bash '/work/it'\\''s here.sh' "hello world" "$AS_SC_USERNAME"`);
 });
 
 test('uses a shorthand as inline script content and infers its type', () => {

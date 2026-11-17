@@ -3,7 +3,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { randomUUID } from 'node:crypto';
 import tl = require('azure-pipelines-task-lib/task');
-import { commandForScript, isSingleLine, resolveScriptSource, serviceConnectionEnvironment, ScriptLocation, SCRIPT_TYPES, ScriptType, variableNames, ShorthandInputs } from './logic';
+import { bashWrapperScript, commandForScript, gitBashCandidates, isSingleLine, isWslBash, resolveScriptSource, serviceConnectionEnvironment, ScriptLocation, SCRIPT_TYPES, ScriptType, variableNames, ShorthandInputs } from './logic';
 
 const SCRIPT_LOCATIONS: ReadonlySet<string> = new Set(['scriptPath', 'inlineScript', 'createVariables']);
 
@@ -34,6 +34,49 @@ function temporaryScriptFile(type: ScriptType, contents: string): string {
   const script = type === 'batch' ? `@echo off\r\n${contents.replace(/\r?\n/g, '\r\n')}` : contents;
   fs.writeFileSync(file, script, 'utf8');
   return file;
+}
+
+/**
+ * Like Bash@3, uses the first bash on PATH, except that on Windows Git Bash is preferred over WSL's bash,
+ * which would not receive the AS_SC_* environment variables.
+ */
+function resolveBash(): string {
+  const bash = tl.which('bash', false);
+  if (process.platform === 'win32' && (!bash || isWslBash(bash))) {
+    const gitBash = gitBashCandidates(tl.which('git', false) || undefined, process.env).find(file => fs.existsSync(file));
+    if (gitBash) {
+      if (bash) console.log(`Using Git Bash (${gitBash}) instead of WSL bash (${bash}).`);
+      return gitBash;
+    }
+    if (bash) {
+      tl.warning(`Git Bash was not found, so using WSL bash (${bash}). WSL does not receive AS_SC_* environment variables unless they are listed in WSLENV.`);
+    }
+  }
+  return bash || tl.which('bash', true);
+}
+
+/** Runs `bash -c pwd` in a directory to learn bash's own path for it, e.g. /c/work for Git Bash or /mnt/c/work for WSL. */
+async function bashDirectory(bash: string, directory: string): Promise<string> {
+  let output = '';
+  const pwd = tl.tool(bash).arg('-c').arg('pwd');
+  pwd.on('stdout', (data: Buffer) => output += data.toString());
+  await pwd.execAsync({ cwd: directory, silent: true });
+  output = output.trim();
+  if (!output) throw new Error(`Unable to translate the path '${directory}' for bash.`);
+  return output;
+}
+
+/** Like Bash@3, translates a Windows file path into the path bash sees; other platforms are unchanged. */
+async function bashFilePath(bash: string, file: string): Promise<string> {
+  if (process.platform !== 'win32') return file;
+  const directory = path.dirname(file);
+  const translated = await bashDirectory(bash, directory);
+  // A bash that cannot see the directory (e.g. WSL without the drive mounted) reports the same fallback for every path.
+  const parent = path.dirname(directory);
+  if (parent !== directory && translated === await bashDirectory(bash, parent)) {
+    throw new Error(`Unable to translate the path '${directory}' for bash.`);
+  }
+  return `${translated}/${path.basename(file)}`;
 }
 
 function echoIfSingleLine(contents: string): void {
@@ -83,11 +126,9 @@ async function runScript(location: Exclude<ScriptLocation, 'createVariables'>): 
   if (type === 'powershell' && process.platform !== 'win32') {
     throw new Error("scriptType 'powershell' is supported only on Windows agents.");
   }
-  if (type === 'bash' && process.platform === 'win32') {
-    throw new Error("scriptType 'bash' is not supported on Windows agents.");
-  }
 
   const cwd = tl.getVariable('System.DefaultWorkingDirectory') || process.cwd();
+  const bash = type === 'bash' ? resolveBash() : undefined;
   let temporaryFile: string | undefined;
   try {
     let scriptFile: string;
@@ -103,6 +144,11 @@ async function runScript(location: Exclude<ScriptLocation, 'createVariables'>): 
       if (type === 'batch') {
         temporaryFile = temporaryScriptFile(type, `CALL "${scriptFile}"${parameters ? ` ${parameters}` : ''}`);
         scriptFile = temporaryFile;
+      } else if (bash) {
+        const contents = bashWrapperScript(await bashFilePath(bash, scriptFile), parameters);
+        console.log(`Formatted command: ${contents}`);
+        temporaryFile = temporaryScriptFile(type, contents);
+        scriptFile = temporaryFile;
       }
     } else {
       const contents = source.value || tl.getInputRequired('inlineScript');
@@ -111,10 +157,11 @@ async function runScript(location: Exclude<ScriptLocation, 'createVariables'>): 
       scriptFile = temporaryFile;
     }
 
-    const spec = commandForScript(type, scriptFile);
-    const runner = tl.tool(tl.which(spec.command, true));
+    const spec = commandForScript(type, bash ? await bashFilePath(bash, scriptFile) : scriptFile);
+    const runner = tl.tool(bash ?? tl.which(spec.command, true));
     runner.arg(spec.args);
-    if (location === 'scriptPath' && parameters && type !== 'batch') {
+    // Batch and bash pass parameters through their wrapper scripts; PowerShell takes them on the command line.
+    if (location === 'scriptPath' && parameters && (type === 'pwsh' || type === 'powershell')) {
       runner.line(parameters);
     }
 

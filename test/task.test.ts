@@ -11,6 +11,8 @@ function runTask(directory: string, inputs: Record<string, string | undefined>) 
   const env = { ...process.env };
   for (const key of Object.keys(env)) {
     if (/^(INPUT_|ENDPOINT_|SECRET_|VSTS_TASKVARIABLE_)/i.test(key)) delete env[key];
+    // Windows names it Path; drop it when overridden so the child does not see two PATH variables.
+    if ('PATH' in inputs && /^path$/i.test(key)) delete env[key];
   }
   return spawnSync(process.execPath, [bundle], {
     encoding: 'utf8',
@@ -94,6 +96,52 @@ test('batch executes ordinary and spaced relative paths with spaced arguments fo
       assert.match(result.stdout, /USER=\[alice\]/);
     }
   }
+});
+
+// On Windows this uses the first bash on PATH (Git Bash on hosted agents), translating paths like Bash@3.
+test('bash runs script paths through an exec wrapper, so bash parses and expands parameters', t => {
+  const directory = fs.mkdtempSync(path.join(os.tmpdir(), "bash task's "));
+  t.after(() => fs.rmSync(directory, { recursive: true, force: true }));
+  for (const file of ['test.sh', "script with spaces and 'quotes'.sh"]) {
+    fs.writeFileSync(path.join(directory, file), 'echo "COUNT=[$#]"\necho "ARG1=[$1]"\necho "ARG2=[$2]"\nexit 3\n');
+    for (const shorthand of [false, true]) {
+      const result = runTask(directory, {
+        INPUT_SERVICECONNECTION: 'TEST',
+        INPUT_SCRIPTLOCATION: 'scriptPath',
+        INPUT_SCRIPTTYPE: 'bash',
+        INPUT_PARAMETERS: '"hello world" "$AS_SC_USERNAME"',
+        [shorthand ? 'INPUT_BASH' : 'INPUT_SCRIPTFILE']: file
+      });
+      assert.equal(result.status, 0, result.stdout + result.stderr);
+      assert.match(result.stdout, /Formatted command: exec bash '/);
+      assert.match(result.stdout, /COUNT=\[2\]/);
+      assert.match(result.stdout, /ARG1=\[hello world\]/);
+      assert.match(result.stdout, /ARG2=\[alice\]/);
+      // exec replaces the wrapper, so the script's own exit code is reported.
+      assert.match(result.stdout, /task.complete result=Failed/);
+      assert.match(result.stdout, /bash exited with code 3/);
+      assert.deepEqual(fs.readdirSync(directory).filter(name => name.startsWith('authenticated-scripts-')), []);
+    }
+  }
+});
+
+const wslBash = path.join(process.env.SystemRoot || 'C:\\Windows', 'System32', 'bash.exe');
+const defaultGitBash = path.join(process.env.ProgramFiles || 'C:\\Program Files', 'Git', 'bin', 'bash.exe');
+test('on Windows, Git Bash is preferred over a WSL bash that comes first on PATH', {
+  skip: process.platform !== 'win32' || !fs.existsSync(wslBash) || !fs.existsSync(defaultGitBash)
+}, t => {
+  const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'wsl-bash-'));
+  t.after(() => fs.rmSync(directory, { recursive: true, force: true }));
+  const result = runTask(directory, {
+    // Only WSL's bash is on PATH, as on agents whose PATH lists System32 before Git.
+    PATH: [path.dirname(wslBash), path.dirname(process.execPath)].join(path.delimiter),
+    INPUT_SERVICECONNECTION: 'TEST',
+    INPUT_BASH: 'echo "USER=[$AS_SC_USERNAME]"'
+  });
+  assert.equal(result.status, 0, result.stdout + result.stderr);
+  assert.match(result.stdout, /task.complete result=Succeeded/);
+  assert.ok(result.stdout.includes(`Using Git Bash (${defaultGitBash}) instead of WSL bash`), result.stdout);
+  assert.match(result.stdout, /USER=\[alice\]/);
 });
 
 test('inline files are removed after success, script failure, and credential failure', t => {

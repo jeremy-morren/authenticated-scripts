@@ -1,3 +1,5 @@
+import path from 'node:path';
+
 export const SCRIPT_TYPES = ['pwsh', 'powershell', 'batch', 'bash'] as const;
 export type ScriptType = typeof SCRIPT_TYPES[number];
 export type ScriptLocation = 'scriptPath' | 'inlineScript' | 'createVariables';
@@ -40,6 +42,37 @@ export function commandForScript(type: ScriptType, scriptFile: string): CommandS
       // Match CmdLineV2 on Windows, including CALL so goto :eof preserves errorlevel.
       return { command: process.env.ComSpec || 'cmd.exe', args: ['/D', '/E:ON', '/V:OFF', '/S', '/C', `"CALL "${scriptFile}""`] };
   }
+}
+
+/**
+ * Matches Bash@3's file-path mode: a wrapper script runs `exec bash '<path>' <parameters>`,
+ * so bash itself parses the parameters (quoting, variable expansion, command substitution).
+ */
+export function bashWrapperScript(scriptFile: string, parameters: string): string {
+  return `exec bash '${scriptFile.replace(/'/g, "'\\''")}' ${parameters}`.trim();
+}
+
+/**
+ * WSL's bash launchers (System32 and the WindowsApps alias) run scripts inside WSL, where the agent's
+ * environment variables, including AS_SC_*, are not passed through by default.
+ */
+export function isWslBash(bashPath: string): boolean {
+  return /\\(system32|sysnative|windowsapps)\\bash\.exe$/i.test(path.win32.normalize(bashPath));
+}
+
+/** Git Bash locations to try on Windows: beside the git on PATH, then the default install directories. */
+export function gitBashCandidates(gitPath: string | undefined, env: NodeJS.ProcessEnv): string[] {
+  const candidates: string[] = [];
+  if (gitPath) {
+    // git.exe is in <Git>\cmd, <Git>\bin, or <Git>\mingw64\bin; <Git>\bin\bash.exe sets up the Git Bash environment.
+    const directory = path.win32.dirname(path.win32.normalize(gitPath));
+    const root = /\\mingw64\\bin$/i.test(directory) ? path.win32.resolve(directory, '..', '..') : path.win32.dirname(directory);
+    candidates.push(path.win32.join(root, 'bin', 'bash.exe'));
+  }
+  for (const programFiles of [env.ProgramW6432, env.ProgramFiles, env['ProgramFiles(x86)']]) {
+    if (programFiles) candidates.push(path.win32.join(programFiles, 'Git', 'bin', 'bash.exe'));
+  }
+  return [...new Set(candidates)];
 }
 
 export function isSingleLine(script: string): boolean {

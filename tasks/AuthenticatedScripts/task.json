@@ -45,7 +45,7 @@
         "pwsh": "PowerShell Core (pwsh)",
         "powershell": "Windows PowerShell (powershell.exe) - Windows only",
         "batch": "Windows Batch file (cmd.exe) - Windows only",
-        "bash": "Bash script - Linux and macOS only"
+        "bash": "Bash script - Git Bash on Windows"
       }
     },
     {
