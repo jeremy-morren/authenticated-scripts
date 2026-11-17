@@ -1,5 +1,6 @@
 # Authenticated Scripts for Azure DevOps
 
+[![GitHub repository](https://img.shields.io/badge/GitHub-Repository-181717?logo=github)](https://github.com/jeremy-morren/authenticated-scripts)
 [![Build](https://img.shields.io/github/actions/workflow/status/jeremy-morren/authenticated-scripts/build.yml?label=Build)](https://github.com/jeremy-morren/authenticated-scripts/actions/workflows/build.yml)
 [![Release](https://img.shields.io/github/actions/workflow/status/jeremy-morren/authenticated-scripts/publish.yml?label=Release)](https://github.com/jeremy-morren/authenticated-scripts/actions/workflows/publish.yml)
 

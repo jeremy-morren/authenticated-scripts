@@ -15,6 +15,11 @@ concurrency:
 jobs:
   publish:
     runs-on: ubuntu-latest
+    # The environment's protection rules (e.g. required reviewers) gate every Marketplace publish.
+    # Store PUBLISH_TOKEN (a Marketplace personal access token) as an environment secret so only this job can read it.
+    environment:
+      name: Visual Studio Marketplace
+      url: https://marketplace.visualstudio.com/items?itemName=jeremy-morren.authenticatedscripts
     steps:
       - uses: actions/checkout@v7
 
@@ -30,8 +35,9 @@ jobs:
           GH_REPO: ${{ github.repository }}
           RELEASE_TAG: ${{ github.event.release.tag_name }}
 
+      # Marketplace validation runs asynchronously after upload; don't hold the job open waiting for it.
       - name: Publish the release artifact to Visual Studio Marketplace
-        run: tfx extension publish --vsix "dist/authenticated-scripts-$RELEASE_TAG.vsix" --auth-type pat --token "$PUBLISH_TOKEN"
+        run: tfx extension publish --vsix "dist/authenticated-scripts-$RELEASE_TAG.vsix" --auth-type pat --token "$PUBLISH_TOKEN" --no-wait-validation
         env:
           PUBLISH_TOKEN: ${{ secrets.PUBLISH_TOKEN }}
           RELEASE_TAG: ${{ github.event.release.tag_name }}
